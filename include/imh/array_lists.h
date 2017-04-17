@@ -1,7 +1,7 @@
 /**
  * @file array_lists.h
- * @author Gibran Fuentes Pineda <gibranfp@turing.iimas.unam.mx>
- * @date 2015
+ * @author Gibran Fuentes-Pineda <gibranfp@unam.mx>
+ * @date 2017
  *
  * @section GPL
  * This program is free software; you can redistribute it and/or

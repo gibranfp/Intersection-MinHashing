@@ -106,6 +106,7 @@ void imh_init_rng(unsigned long long seed)
  * @param Number of MinHash values per tuple
  * @param dim Largest item value in the database of lists
  * @param table_size Number of buckets in the hash table
+ * @param sublist_size Size of sublists
  *
  * @return Hash table structure
  */
@@ -262,14 +263,13 @@ void imh_generate_permutations(uint dim, uint tuple_size,
 }
 
 /**
- * @brief Assigns, for each MinHash function, a random positive integer 
- *        and a uniformly distributed U(0,1) number to each possible 
- *        item in the database of lists.
+ * @brief Compues the MinHash as the integer value which corresponds to the smallest real value from
+ *        a given permutation.
  * 
  * @param list List to be hashed
- * @param pernum Number of the permutation
  * @param permutation Random permutation
- * @param dim Dimensionality of the data (number of lists)
+ *
+ * @returns MinHash value
  */
 ullong imh_compute_minhash(List *list, RandomValue *permutation)
 {
@@ -322,12 +322,11 @@ void imh_compute_univhash(List *list, HashTable *hash_table, uint *hash_value,
 /**
  * @brief Computes 2nd-level hash value of lists using open 
  *        adressing collision resolution and linear probing.
- * @todo Add other probing strategies.
  *
  * @param list List to be hashed
  * @param hash_table Hash table structure
  *
- * @return - index of the hash table
+ * @return Index of the hash table
  */ 
 uint imh_get_index(List *list, HashTable *hash_table)
 {
@@ -470,11 +469,11 @@ void imh_store_list(List *list, uint id, HashTable *hash_table)
 }
 
 /**
- * @brief Stores lists in the hash table.
+ * @brief Stores a database of sublists in the hash table.
  *
- * @param listdb Database of lists to be hashed
+ * @param sublistdb Database of sublists to be hashed
+ * @param sublistdb_ids IDs of the list from which each sublist was generated.
  * @param hash_table Hash table
- * @param indices Indices of the used buckets
  */ 
 void imh_store_sublistdb(ListDB *sublistdb, uint *sublistdb_ids, HashTable *hash_table)
 {

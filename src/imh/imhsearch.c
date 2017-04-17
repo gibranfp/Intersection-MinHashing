@@ -45,7 +45,7 @@ void imhsearch_print_index_head(HashIndex *hash_index)
 }
 
 /**
- * @Brief Prints head and tables of a hash index structure
+ * @Brief Prints each tables of a hash index structure
  *
  * @param hash_index Hash index structure 
  */
@@ -59,17 +59,19 @@ void imhsearch_print_index_tables(HashIndex *hash_index)
 }
 
 /**
- * @brief Builds a hash index
+ * @brief Creates a hash index and stores a database of lists in each hash table
  *
  * @param listdb Database of lists to be hashed
  * @param number_of_tables Number of tables
  * @param tuple_size Number of hash values per tuple
  * @param table_size Number of buckets in the hash table
+ *
+ * @returns Hash index
  */
 HashIndex imhsearch_build(ListDB *listdb, uint number_of_tables, uint tuple_size,
                           uint table_size, uint sublist_size)
 {
-     // Creates sublists
+     // Generates sublists
      uint *sublist_number = (uint *) malloc(listdb->size * sizeof(uint));
      uint sublistdb_size = imh_get_sublist_numbers(listdb,
                                                    sublist_size,
@@ -80,11 +82,13 @@ HashIndex imhsearch_build(ListDB *listdb, uint number_of_tables, uint tuple_size
                                                          sublistdb_size,
                                                          sublist_size,
                                                          sublistdb_ids);
-     
+
+     // Creates hash index
      HashIndex hash_index;
      hash_index.number_of_tables = number_of_tables;
      hash_index.hash_tables = (HashTable *) malloc(number_of_tables * sizeof(HashTable));
 
+     // Stores lists in each hash table 
      uint i;
      for (i = 0; i < number_of_tables; i++) {
           hash_index.hash_tables[i] = imh_create_table(table_size,
@@ -99,19 +103,20 @@ HashIndex imhsearch_build(ListDB *listdb, uint number_of_tables, uint tuple_size
 }
 
 /**
- * @brief Sorts results of queries
+ * @brief Sorts neighbors found by Intersection Min-Hashing (imhsearch_query) using a score.
  *
  * @param query Query list
- * @param neighbors ID's of neighbors found by Min-Hashing
- * @param listdb Database of lists
- * @param func Function to compute score of each neighbor found
+ * @param neighbors List of IDs of the neighbors found by Intersectio Min-Hashing (imhsearch_query)
+ * @param listdb Database of lists stored in the hash tables
+ * @param func Function to compute score of each neighbor found (e.g. Jaccard similarity)
+ *             Given as a function pointer
  */
 void imhsearch_sort_custom(List *query, List *neighbors, ListDB *listdb, double (*func)(List *, List *))
 {
      Score *scores = malloc(neighbors->size * sizeof(Score));
 
      uint i;
-     for (i = 0; i < neighbors->size; i++){
+     for (i = 0; i < neighbors->size; i++) {
           scores[i].index = i;
           scores[i].value = func(query, &listdb->lists[neighbors->data[i].item]);
      }
@@ -129,10 +134,12 @@ void imhsearch_sort_custom(List *query, List *neighbors, ListDB *listdb, double 
 }
 
 /**
- * @brief Makes a query from the Intersection Min-Hashing structure
+ * @brief Queries the hash tables of an hash index structure with a given list
  *
  * @param query Query list
- * @param hash_index Index of hash tables
+ * @param hash_index Index structure with hash tables
+ *
+ * @return List of neighbors found
  */
 List imhsearch_query(List *query, HashIndex *hash_index)
 {
@@ -152,13 +159,14 @@ List imhsearch_query(List *query, HashIndex *hash_index)
 }
 
 /**
- * @brief Makes multiple queries from the MinHash structure
+ * @brief Queries the hash tables of an hash index structure with a given database of lists
  *
- * @param queries Database of lists to query
- * @param hash_index Index of hash tables for searching
+ * @param queries Queries given as a database of lists 
+ * @param hash_index Index structure with hash tables
  *
- * @return Database of lists with the results of the queries
+ * @return Neighbors found (database of lists) for each query 
  */
+
 ListDB imhsearch_query_multi(ListDB *queries, HashIndex *hash_index)
 {
      ListDB neighbors = listdb_create(queries->size, queries->dim);

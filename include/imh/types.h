@@ -1,7 +1,7 @@
 /**
  * @file types.h
  * @author Gibran Fuentes-Pineda <gibranfp@unam.mx>
- * @date 2016
+ * @date 2017
  *
  * @section GPL
  * This program is free software; you can redistribute it and/or
