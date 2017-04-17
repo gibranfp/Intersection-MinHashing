@@ -1,7 +1,7 @@
 /**
  * @file iminhash.c
  * @author Gibran Fuentes-Pineda <gibranfp@unam.mx>
- * @date 2016
+ * @date 2017
  *
  * @section GPL
  * This program is free software; you can redistribute it and/or
@@ -22,7 +22,7 @@
 #include <time.h>
 #include <math.h>
 #include <inttypes.h>
-#include "rng.h"
+#include "mt64.h"
 #include "iminhash.h"
 
 /**
@@ -92,6 +92,14 @@ void imh_init_table(HashTable *hash_table)
 }
 
 /**
+ * @brief Initializes the randon number generator
+ */
+void imh_init_rng(unsigned long long seed)
+{
+     init_genrand64(seed);
+}
+
+/**
  * @brief Creates a hash table structure for performing Min-Hash
  *        on a collection of list.
  *
@@ -121,8 +129,8 @@ HashTable imh_create_table(uint table_size, uint tuple_size, uint dim,
      hash_table.a = (uint *) malloc(tuple_size * sizeof(uint));
      hash_table.b = (uint *) malloc(tuple_size * sizeof(uint));
      for (i = 0; i < tuple_size; i++) {
-          hash_table.a[i] = (unsigned int) (rng_generate_int64() & 0xFFFFFFFF);
-          hash_table.b[i] = (unsigned int) (rng_generate_int64() & 0xFFFFFFFF);
+          hash_table.a[i] = (unsigned int) (genrand64_int64() & 0xFFFFFFFF);
+          hash_table.b[i] = (unsigned int) (genrand64_int64() & 0xFFFFFFFF);
      }
      
      return hash_table;
@@ -158,7 +166,12 @@ int imh_random_double_value_compare(const void *a, const void *b)
      double a_val = ((RandomValue *)a)->random_double;
      double b_val = ((RandomValue *)b)->random_double;
 
-     return a_val - b_val;
+     if (a_val > b_val)
+          return 1;
+     else if (a_val < b_val)
+          return -1;
+     else
+          return 0;
 }
 
 /**
@@ -176,7 +189,12 @@ int imh_random_double_value_compare_back(const void *a, const void *b)
      double a_val = ((RandomValue *)a)->random_double;
      double b_val = ((RandomValue *)b)->random_double;
 
-     return b_val - a_val;
+     if (a_val < b_val)
+          return 1;
+     else if (a_val > b_val)
+          return -1;
+     else
+          return 0;
 }
 
 /**
@@ -235,7 +253,7 @@ void imh_generate_permutations(uint dim, uint tuple_size,
      // of the universal set
      for (i = 0; i < tuple_size; i++) { 
           for (j = 0; j < dim; j++) {
-               int_rnd = rng_generate_int64();
+               int_rnd = genrand64_int64();
                dbl_rnd = (int_rnd >> 11) * (1.0 / MAX_SAFE_INT);
                permutations[i * dim + j].random_int = int_rnd;
                permutations[i * dim + j].random_double = dbl_rnd;
@@ -295,7 +313,7 @@ void imh_compute_univhash(List *list, HashTable *hash_table, uint *hash_value,
           temp_index += ((ullong) hash_table->a[i]) * minhash;
           temp_hv += ((ullong) hash_table->b[i]) * minhash; 
      }
-
+     
      // computes 2nd-level hash value and index (universal hash functions)
      *hash_value = (temp_hv % LARGEST_PRIME64);   
      *index = (temp_index % LARGEST_PRIME64) % hash_table->table_size;
@@ -344,21 +362,20 @@ uint imh_get_index(List *list, HashTable *hash_table)
 }
 
 /**
- * @brief 
+ * @brief Computes the number of sublists for each list in the database
  *
  * @param listdb Database of lists
- * @param ifindex Inverted file index of the database of lists
+ * @param sublist_size Size of the sublist
+ * @param sublist_number Number of sublist for each list in the database
  *
- * @return Array with the cumulative maximum frequencies
+ * @return Total number of sublists
  */ 
 uint imh_get_sublist_numbers(ListDB *listdb, uint sublist_size, uint *sublist_number)
 {
      uint i, sublistdb_size = 0;
 
-
-     sublist_number = (uint *) calloc(listdb->size, sizeof(uint));
      for (i = 0; i < listdb->size; i++) {
-          sublist_number[i] = floor(listdb->lists[i].size / sublist_size);
+          sublist_number[i] = (uint) floor((double) listdb->lists[i].size / (double) sublist_size);
           sublistdb_size += sublist_number[i];
      }
      
@@ -366,11 +383,20 @@ uint imh_get_sublist_numbers(ListDB *listdb, uint sublist_size, uint *sublist_nu
 }
 
 /**
- * @brief
- * @return Expanded database of lists with frequencies equal to 1
+ * @brief Generates a database of sublists from a database of lists
+ *
+ * @param sublist_number Number of sublist for each list in the database
+ * @param sublistdb_size Total number of sublists
+ * @param sublist_size Size of the sublist
+ * @param sublistdb_ids IDs of the list from which each sublist was generated
+ *
+ * @return Database of sublists generated from a database of lists
  */ 
-ListDB imh_create_sublistdb_from_listdb(ListDB *listdb, uint *sublist_number,
-                                        uint sublistdb_size, uint *sublist_ids)
+ListDB imh_create_sublistdb_from_listdb(ListDB *listdb,
+                                        uint *sublist_number,
+                                        uint sublistdb_size,
+                                        uint sublist_size,
+                                        uint *sublistdb_ids)
 {
      uint i, j, k;
      uint sublist_index = 0;
@@ -384,27 +410,37 @@ ListDB imh_create_sublistdb_from_listdb(ListDB *listdb, uint *sublist_number,
                                                             * sizeof(RandomValue));
           for (j = 0; j < listdb->lists[i].size; j++) {
                permutation[j].random_int = j;
-               permutation[j].random_double = rng_generate_double();
-          }               
-          qsort(permutation, listdb->lists[i].size, sizeof(RandomValue),
+               permutation[j].random_double = genrand64_real1();
+          }
+          qsort(permutation,
+                listdb->lists[i].size,
+                sizeof(RandomValue),
                 imh_random_double_value_compare_back);
-
+          
           // create database of sublists
-          uint rest = 0;
           for (j = 0; j < sublist_number[i]; j++) {
                List newsublist;
-               if (j + 1 == sublist_number[i])
-                    rest = listdb->lists[i].size % sublistdb_size;
-               for (k = 0; k < sublistdb_size + rest; k++) {
+               list_init(&newsublist);
+               for (k = sublist_size * j; k < sublist_size * (j + 1); k++) {
                     list_push(&newsublist,
-                              listdb->lists[i].data[permutation[j].random_int]);
+                              listdb->lists[i].data[permutation[k].random_int]);
                }
+
                sublistdb.lists[sublist_index] = newsublist;
-               sublist_ids[sublist_index] = i;
+               sublistdb_ids[sublist_index] = i;
+               sublist_index++;
           }
 
+          // the last sublist takes the left elements, if any
+          for (j = sublist_size * sublist_number[i]; j < listdb->lists[i].size; j++) {
+                    list_push(&sublistdb.lists[sublist_index - 1],
+                              listdb->lists[i].data[permutation[k].random_int]);
+          }
+          
           free(permutation);
      }
+     
+     listdb_apply_to_all(&sublistdb, list_sort_by_item);
      
      return sublistdb;
 }
@@ -416,7 +452,7 @@ ListDB imh_create_sublistdb_from_listdb(ListDB *listdb, uint *sublist_number,
  * @param id ID of the list
  * @param hash_table Hash table
  */ 
-uint imh_store_list(List *list, uint id, HashTable *hash_table)
+void imh_store_list(List *list, uint id, HashTable *hash_table)
 {
      uint index;
    
@@ -431,8 +467,6 @@ uint imh_store_list(List *list, uint id, HashTable *hash_table)
      // store list id in the hash table
      Item new_item = {id, 1};
      list_push(&hash_table->buckets[index].items, new_item);
-
-     return index;
 }
 
 /**
@@ -442,36 +476,12 @@ uint imh_store_list(List *list, uint id, HashTable *hash_table)
  * @param hash_table Hash table
  * @param indices Indices of the used buckets
  */ 
-void imh_store_sublistdb(ListDB *sublistdb, uint *sublistdb_ids, HashTable *hash_table, uint *indices)
+void imh_store_sublistdb(ListDB *sublistdb, uint *sublistdb_ids, HashTable *hash_table)
 {
      uint i;   
          
      // hash all lists in the database
      for (i = 0; i < sublistdb->size; i++)
           if (sublistdb ->lists[i].size > 0)
-               indices[i] = imh_store_list(&sublistdb->lists[i],
-                                           sublistdb_ids[i],
-                                           hash_table);
+               imh_store_list(&sublistdb->lists[i], sublistdb_ids[i], hash_table);
 }
-
-/**
- * @brief Stores lists in the hash table.
- *
- * @param listdb Database of lists to be hashed
- * @param hash_table Hash table
- * @param indices Indices of the used buckets
- */ 
-void imh_store_listdb(ListDB *listdb, HashTable *hash_table, uint *indices)
-{
-     uint *sublist_number;
-     uint sublistdb_size = imh_get_sublist_numbers(listdb,
-                                                   hash_table->sublist_size,
-                                                   sublist_number);
-
-     uint *sublist_ids;
-     ListDB sublistdb = imh_create_sublistdb_from_listdb(listdb,
-                                                         sublist_number,
-                                                         sublistdb_size,
-                                                         sublist_ids);
-}
-

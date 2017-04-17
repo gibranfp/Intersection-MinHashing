@@ -1,7 +1,7 @@
 /**
  * @file imhsearch.h
  * @author Gibran Fuentes-Pineda <gibranfp@unam.mx>
- * @date 2016
+ * @date 2017
  *
  * @section GPL
  * This program is free software; you can redistribute it and/or
@@ -20,10 +20,17 @@
 #ifndef IMHSEARCH_H
 #define  IMHSEARCH_H
 
-#include <imh/minhash.h>
+#include <iminhash.h>
 
-HashIndex imhsearch_build(ListDB *listdb, uint number_of_tuples, uint tuple_size, uint table_size);
-List imhsearch_query(List *query, HashIndex *hash_index);
-void imhsearch_sort_custom(List *query, List *neighbors, ListDB *listdb, double (*func)(List *, List *));
-ListDB imhsearch_query_multi(ListDB *queries, HashIndex *hash_index);
+typedef struct HashIndex {
+	  uint number_of_tables;
+	  HashTable *hash_tables;
+} HashIndex;
+
+void imhsearch_print_index_head(HashIndex *);
+void imhsearch_print_index_tables(HashIndex *);
+HashIndex imhsearch_build(ListDB *, uint, uint, uint, uint);
+List imhsearch_query(List *, HashIndex *);
+void imhsearch_sort_custom(List *, List *, ListDB *, double (*)(List *, List *));
+ListDB imhsearch_query_multi(ListDB *, HashIndex *);
 #endif

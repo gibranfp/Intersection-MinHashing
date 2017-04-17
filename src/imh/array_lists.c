@@ -303,7 +303,12 @@ int list_score_compare(const void *a, const void *b)
      double a_val = ((Score *)a)->value;
      double b_val = ((Score *)b)->value;
 
-     return a_val - b_val;
+     if (a_val > b_val)
+          return 1;
+     else if (a_val < b_val)
+          return -1;
+     else
+          return 0;
 }
 
 /**
@@ -320,7 +325,12 @@ int list_score_compare_back(const void *a, const void *b)
      double a_val = ((Score *)a)->value;
      double b_val = ((Score *)b)->value;
 
-     return b_val - a_val;
+     if (a_val < b_val)
+          return 1;
+     else if (a_val > b_val)
+          return -1;
+     else
+          return 0;
 }
 
 /**
