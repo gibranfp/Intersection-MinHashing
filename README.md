@@ -4,7 +4,7 @@ This is a simple extension of Min-Hashing for performing approximate set interse
 ## Installation
 Clone and compile the library:
 ~~~~
-git clone https://github.com/gibranfp/Sampled-MinHashing.git
+git clone https://github.com/gibranfp/Intersection-MinHashing.git
 cd Intersection-MinHashing
 mkdir build
 cd build
